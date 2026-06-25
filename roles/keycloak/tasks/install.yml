@@ -120,7 +120,11 @@
 
     - name: Determine install zipfile from search results
       ansible.builtin.set_fact:
-        rhn_filtered_products: "{{ rhn_products.results | selectattr('file_name', 'match', '.*rh-sso-' + sso_version.split('.')[:2] | join('.') + '.*-server-dist\\.zip$') | rejectattr('file_name', 'search', 'maven|src|license|provenance|adapter') | list }}"
+        keycloak_rhn_filtered_products: >-
+          {{ keycloak_rhn_products.results
+          | selectattr('file_name', 'match', '.*rh-sso-' + sso_version.split('.')[:2] | join('.') + '.*-server-dist\\.zip$')
+          | rejectattr('file_name', 'search', 'maven|src|license|provenance|adapter')
+          | list }}
       delegate_to: localhost
       run_once: true
 
@@ -128,7 +132,7 @@
       middleware_automation.common.product_download: # noqa risky-file-permissions delegated, uses controller host user
         client_id: "{{ rhn_username }}"
         client_secret: "{{ rhn_password }}"
-        product_id: "{{ (rhn_filtered_products | first).id }}"
+        product_id: "{{ (keycloak_rhn_filtered_products | first).id }}"
         dest: "{{ local_path.stat.path }}/{{ keycloak.bundle }}"
       no_log: "{{ omit_rhn_output | default(true) }}"
       delegate_to: localhost
