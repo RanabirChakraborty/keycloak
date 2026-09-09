@@ -159,6 +159,35 @@
             enabled: true
             state: present
 
+        - name: keycloak_role — create realm role for restricted admin test
+          middleware_automation.keycloak.keycloak_role:
+            realm: "{{ target_realm }}"
+            name: "{{ role }}-restricted"
+            state: present
+
+        - name: keycloak_user — create restricted admin in master (manage-users only, no view-realm)
+          middleware_automation.keycloak.keycloak_user:
+            realm: master
+            username: molecule-restricted-admin
+            first_name: Restricted
+            last_name: Admin
+            enabled: true
+            credentials:
+              - type: password
+                value: restricted-admin-password
+                temporary: false
+            state: present
+
+        - name: keycloak_user_rolemapping — grant manage-users for TestRealm to restricted admin
+          middleware_automation.keycloak.keycloak_user_rolemapping:
+            realm: master
+            target_username: molecule-restricted-admin
+            client_id: "{{ target_realm }}-realm"
+            state: present
+            roles:
+              - name: manage-users
+              - name: view-users
+
         - name: keycloak_authentication_flow — create browser-style flow
           middleware_automation.keycloak.keycloak_authentication_flow:
             realm: "{{ target_realm }}"
@@ -543,6 +572,44 @@
             roles:
               - name: "{{ role }}"
 
+        - name: keycloak_user_rolemapping — assign realm role using restricted admin (no view-realm)
+          middleware_automation.keycloak.keycloak_user_rolemapping:
+            auth_keycloak_url: "{{ auth_keycloak_url }}"
+            auth_realm: master
+            auth_username: molecule-restricted-admin
+            auth_password: restricted-admin-password
+            validate_certs: false
+            realm: "{{ target_realm }}"
+            target_username: "{{ user }}"
+            state: present
+            roles:
+              - name: "{{ role }}-restricted"
+          register: restricted_admin_rolemapping_result
+
+        - name: Assert restricted admin can assign realm role without view-realm
+          ansible.builtin.assert:
+            that:
+              - restricted_admin_rolemapping_result is changed
+
+        - name: keycloak_user_rolemapping — idempotency check with restricted admin
+          middleware_automation.keycloak.keycloak_user_rolemapping:
+            auth_keycloak_url: "{{ auth_keycloak_url }}"
+            auth_realm: master
+            auth_username: molecule-restricted-admin
+            auth_password: restricted-admin-password
+            validate_certs: false
+            realm: "{{ target_realm }}"
+            target_username: "{{ user }}"
+            state: present
+            roles:
+              - name: "{{ role }}-restricted"
+          register: restricted_admin_rolemapping_idempotent_result
+
+        - name: Assert restricted admin rolemapping is idempotent
+          ansible.builtin.assert:
+            that:
+              - restricted_admin_rolemapping_idempotent_result is not changed
+
         - name: keycloak_realm_rolemapping — assign realm role to group
           middleware_automation.keycloak.keycloak_realm_rolemapping:
             realm: "{{ target_realm }}"
@@ -886,6 +953,26 @@
             state: absent
             roles:
               - name: "{{ role }}"
+
+        - name: keycloak_user_rolemapping — remove restricted admin role mapping from user
+          middleware_automation.keycloak.keycloak_user_rolemapping:
+            realm: "{{ target_realm }}"
+            target_username: "{{ user }}"
+            state: absent
+            roles:
+              - name: "{{ role }}-restricted"
+
+        - name: keycloak_user — remove restricted admin user from master
+          middleware_automation.keycloak.keycloak_user:
+            realm: master
+            username: molecule-restricted-admin
+            state: absent
+
+        - name: keycloak_role — remove restricted admin test role
+          middleware_automation.keycloak.keycloak_role:
+            realm: "{{ target_realm }}"
+            name: "{{ role }}-restricted"
+            state: absent
 
         - name: keycloak_identity_provider — remove OIDC provider
           middleware_automation.keycloak.keycloak_identity_provider:
