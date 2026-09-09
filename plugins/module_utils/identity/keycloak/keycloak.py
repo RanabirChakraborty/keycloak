@@ -177,6 +177,7 @@ def keycloak_argument_spec() -> dict[str, t.Any]:
         token=dict(type="str", no_log=True),
         refresh_token=dict(type="str", no_log=True),
         http_agent=dict(type="str", default="Ansible"),
+        use_netrc=dict(type="bool", default=False),
     )
 
 
@@ -216,6 +217,7 @@ def _token_request(module_params: dict[str, t.Any], payload: dict[str, t.Any]) -
     http_agent = module_params.get("http_agent")
     validate_certs = module_params.get("validate_certs")
     connection_timeout = module_params.get("connection_timeout")
+    use_netrc = module_params.get("use_netrc", False)
 
     try:
         r = json.loads(
@@ -226,6 +228,7 @@ def _token_request(module_params: dict[str, t.Any], payload: dict[str, t.Any]) -
                 http_agent=http_agent,
                 timeout=connection_timeout,
                 data=urlencode(payload),
+                use_netrc=use_netrc,
             ).read()
         )
 
@@ -401,6 +404,7 @@ class KeycloakAPI:
         self.connection_timeout = self.module.params.get("connection_timeout")
         self.restheaders = connection_header
         self.http_agent = self.module.params.get("http_agent")
+        self.use_netrc = self.module.params.get("use_netrc", False)
 
     def _request(
         self, url: str, method: str, data: str | bytes | None = None, *, extra_headers: dict[str, str] | None = None
@@ -429,6 +433,7 @@ class KeycloakAPI:
                     headers=headers,
                     timeout=self.connection_timeout,
                     validate_certs=self.validate_certs,
+                    use_netrc=self.use_netrc,
                 )
             except HTTPError as e:
                 if e.code != HTTPStatus.UNAUTHORIZED:

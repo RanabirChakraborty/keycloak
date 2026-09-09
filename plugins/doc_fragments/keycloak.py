@@ -78,4 +78,12 @@ options:
             - Configures the HTTP User-Agent header.
         type: str
         default: Ansible
+    use_netrc:
+        description:
+            - Whether to use credentials from C(~/.netrc) file.
+            - By default, C(~/.netrc) is not used because these modules authenticate via
+              explicit OIDC credentials/token. A matching C(~/.netrc) entry would silently
+              override the Bearer token with Basic authentication, causing 401 errors.
+        type: bool
+        default: false
 '''

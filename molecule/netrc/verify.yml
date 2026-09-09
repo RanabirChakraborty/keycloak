@@ -1,0 +1,64 @@
+---
+- name: Verify use_netrc option prevents .netrc from overriding bearer token (issue 403)
+  hosts: all
+  vars:
+    auth_keycloak_url: http://instance:8080
+    auth_realm: master
+    auth_username: remembertochangeme
+    auth_password: remembertochangeme
+    target_realm: TestRealm
+  module_defaults:
+    group/middleware_automation.keycloak.keycloak:
+      auth_keycloak_url: "{{ auth_keycloak_url }}"
+      auth_realm: "{{ auth_realm }}"
+      auth_username: "{{ auth_username }}"
+      auth_password: "{{ auth_password }}"
+      validate_certs: false
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Check if keycloak service started
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services["keycloak.service"]["state"] == "running"
+          - ansible_facts.services["keycloak.service"]["status"] == "enabled"
+        fail_msg: Keycloak service is not running
+
+    - name: Verify netrc handling
+      block:
+        - name: Create .netrc with bogus credentials matching the Keycloak host
+          ansible.builtin.copy:
+            dest: ~/.netrc
+            mode: "0600"
+            content: |
+              machine instance
+                login netrc_user
+                password netrc_password
+
+        - name: API call with default use_netrc (false) ignores .netrc
+          middleware_automation.keycloak.keycloak_realm_keys_metadata_info:
+            realm: "{{ target_realm }}"
+          register: netrc_default_result
+
+        - name: Assert API call succeeds with default use_netrc despite .netrc
+          ansible.builtin.assert:
+            that:
+              - netrc_default_result is not failed
+
+        - name: API call with use_netrc true picks up .netrc credentials
+          middleware_automation.keycloak.keycloak_realm_keys_metadata_info:
+            realm: "{{ target_realm }}"
+            use_netrc: true
+          register: netrc_true_result
+          ignore_errors: true
+
+        - name: Assert API call fails when use_netrc is true and .netrc has credentials
+          ansible.builtin.assert:
+            that:
+              - netrc_true_result is failed
+      always:
+        - name: Remove .netrc test file
+          ansible.builtin.file:
+            path: ~/.netrc
+            state: absent
