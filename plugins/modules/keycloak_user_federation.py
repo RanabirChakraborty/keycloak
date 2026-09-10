@@ -994,7 +994,6 @@ def main():
             if changeset.get("mappers") is None:
                 changeset["mappers"] = list()
             changeset["mappers"].append(new_mapper)
-        changeset["mappers"] = sorted(changeset["mappers"], key=lambda x: x.get("name") or "")
 
         # to keep unspecified existing mappers we add them to the desired mappers list, unless they're already present
         if not module.params["remove_unspecified_mappers"] and "mappers" in before_comp:
@@ -1002,6 +1001,9 @@ def main():
             changeset["mappers"].extend(
                 [mapper for mapper in before_comp["mappers"] if mapper["id"] not in changeset_mapper_ids]
             )
+
+        # ensure idempotency in case module.params.mappers is not sorted by name
+        changeset["mappers"] = sorted(changeset["mappers"], key=lambda x: x.get("name") or "")
 
     # Prepare the desired values using the existing values (non-existence results in a dict that is save to use as a basis)
     desired_comp = before_comp.copy()
