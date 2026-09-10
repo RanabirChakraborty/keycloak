@@ -21,7 +21,7 @@
 
 - name: Distro specific tasks
   ansible.builtin.include_tasks:
-    file: "{{ ansible_os_family | lower }}.yml"
+    file: "{{ ansible_facts['os_family'] | lower }}.yml"
     apply:
       tags:
         - unbound

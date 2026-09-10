@@ -206,7 +206,7 @@ argument_specs:
                 type: "int"
             keycloak_quarkus_jgroups_bind_address:
                 description: 'jgroups bind address'
-                default: "{{ ansible_default_ipv4.address }}"
+                default: "{{ ansible_facts['default_ipv4']['address'] }}"
                 type: "str"
             keycloak_quarkus_jgroups_external_addr:
                 description: 'IP address that other instances in the Keycloak should use to contact this node'
