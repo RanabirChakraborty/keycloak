@@ -337,44 +337,47 @@ def main():
             module.fail_json(msg=f"Could not fetch client {client_id}:")
     if roles is None:
         module.exit_json(msg="Nothing to do (no roles specified).")
-    else:
-        for role in roles:
-            if role.get("name") is None and role.get("id") is None:
-                module.fail_json(msg="Either the `name` or `id` has to be specified on each role.")
-            # Fetch missing role_id
-            if role.get("id") is None:
-                if cid is None:
-                    role_id = kc.get_realm_role(name=role.get("name"), realm=realm)["id"]
-                else:
-                    role_id = kc.get_client_role_id_by_name(cid=cid, name=role.get("name"), realm=realm)
-                if role_id is not None:
-                    role["id"] = role_id
-                else:
-                    module.fail_json(
-                        msg=f"Could not fetch role {role.get('name')} for client_id {client_id} or realm {realm}"
-                    )
-            # Fetch missing role_name
-            else:
-                if cid is None:
-                    role_rep = kc.get_realm_user_rolemapping_by_id(uid=uid, rid=role.get("id"), realm=realm)
-                    if role_rep is not None:
-                        role["name"] = role_rep["name"]
-                else:
-                    role_rep = kc.get_client_user_rolemapping_by_id(uid=uid, cid=cid, rid=role.get("id"), realm=realm)
-                    if role_rep is not None:
-                        role["name"] = role_rep["name"]
-                if role.get("name") is None:
-                    module.fail_json(
-                        msg=f"Could not fetch role {role.get('id')} for client_id {client_id} or realm {realm}"
-                    )
 
-    # Get effective role mappings
+    # Get available and assigned role mappings using user-scoped endpoints
+    # (these do not require the view-realm permission)
     if cid is None:
         available_roles_before = kc.get_realm_user_available_rolemappings(uid=uid, realm=realm)
         assigned_roles_before = kc.get_realm_user_composite_rolemappings(uid=uid, realm=realm)
     else:
         available_roles_before = kc.get_client_user_available_rolemappings(uid=uid, cid=cid, realm=realm)
         assigned_roles_before = kc.get_client_user_composite_rolemappings(uid=uid, cid=cid, realm=realm)
+
+    all_known_roles = available_roles_before + assigned_roles_before
+
+    for role in roles:
+        if role.get("name") is None and role.get("id") is None:
+            module.fail_json(msg="Either the `name` or `id` has to be specified on each role.")
+        # Fetch missing role_id
+        if role.get("id") is None:
+            role_id = None
+            for r in all_known_roles:
+                if r["name"] == role.get("name"):
+                    role_id = r["id"]
+                    break
+            if role_id is not None:
+                role["id"] = role_id
+            else:
+                module.fail_json(
+                    msg=f"Could not fetch role {role.get('name')} for client_id {client_id} or realm {realm}"
+                )
+        # Fetch missing role_name
+        elif role.get("name") is None:
+            role_name = None
+            for r in all_known_roles:
+                if r["id"] == role.get("id"):
+                    role_name = r["name"]
+                    break
+            if role_name is not None:
+                role["name"] = role_name
+            else:
+                module.fail_json(
+                    msg=f"Could not fetch role {role.get('id')} for client_id {client_id} or realm {realm}"
+                )
 
     result["existing"] = assigned_roles_before
     result["proposed"] = roles
