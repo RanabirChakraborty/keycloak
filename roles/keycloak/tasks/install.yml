@@ -256,8 +256,8 @@
         {
           "name": item,
           "address": 'jgroups-' + item,
-          "inventory_host": hostvars[item].ansible_default_ipv4.address | default(item) + '[' + (keycloak_jgroups_port | string) + ']',
-          "value": hostvars[item].ansible_default_ipv4.address | default(item)
+          "inventory_host": hostvars[item].ansible_facts['default_ipv4']['address'] | default(item) + '[' + (keycloak_jgroups_port | string) + ']',
+          "value": hostvars[item].ansible_facts['default_ipv4']['address'] | default(item)
         }
       ] }}
   loop: "{{ ansible_play_batch }}"
